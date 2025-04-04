@@ -5,6 +5,7 @@ from collections import deque
 from game import SnakeGameAI, Direction, Point
 from model import Linear_QNet, QTrainer
 from helper import plot
+import math
 import os
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 os.environ["OMP_NUM_THREADS"] = "1"
@@ -13,7 +14,7 @@ os.environ["MKL_THREADING_LAYER"] = "GNU"
 
 MAX_MEMORY = 100_000
 BATCH_SIZE = 1000
-LR = 0.001 # CHANGEABLE
+LR = 0.0005 # CHANGEABLE
 
 class Agent:
 
@@ -22,7 +23,7 @@ class Agent:
         self.epsilon = 0 # randomness 
         self.gamma = 0.9 # discount rate CHANGEABLE smaller than 1
         self.memory = deque(maxlen=MAX_MEMORY) # popleft()
-        self.model = Linear_QNet(11, 256, 3) # CHANGEABLE
+        self.model = Linear_QNet(11, 128, 3) # CHANGEABLE
         self.trainer = QTrainer(self.model, lr=LR, gamma=self.gamma)
 
 
@@ -89,10 +90,10 @@ class Agent:
         self.trainer.train_step(state, action, reward, next_state, done)
 
     def get_action(self, state):
-        # random moves: tradeoff exploration and exploitation
-        self.epsilon =  80 - self.n_games
+        self.epsilon = max(0.01, 1.0 - (self.n_games / 6000))
+
         final_move = [0,0,0]
-        if random.randint(0, 200) < self.epsilon:
+        if random.random() < self.epsilon:
             move = random.randint(0, 2)
             final_move[move] = 1
         else: 
@@ -124,7 +125,7 @@ def train():
         # train short memory
         agent.train_short_memory(state_old, final_move, reward, state_new, done)
 
-        # remember
+        # remember funksjon
         agent.remember(state_old, final_move, reward, state_new, done)
 
         if done:
@@ -142,7 +143,7 @@ def train():
             total_score += score
             mean_score = total_score / agent.n_games
             plot_mean_scores.append(mean_score)
-            plot(plot_scores, plot_mean_scores)
+            plot(plot_scores, plot_mean_scores, agent.n_games)
 
 
 if __name__ == '__main__':

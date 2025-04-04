@@ -3,10 +3,12 @@ import random
 from enum import Enum
 from collections import namedtuple
 import numpy as np
+import math
 
 pygame.init()
 font = pygame.font.Font('arial.ttf', 25)
 
+#TODO:
 # reset
 # reward
 # play(action) -> direction
@@ -21,7 +23,7 @@ class Direction(Enum):
     
 Point = namedtuple('Point', 'x, y')
 
-# rgb colors
+# farger
 WHITE = (255, 255, 255)
 RED = (200,0,0)
 BLUE1 = (0, 0, 255)
@@ -29,7 +31,7 @@ BLUE2 = (0, 100, 255)
 BLACK = (0,0,0)
 
 BLOCK_SIZE = 20
-SPEED = 200
+SPEED = 800
 
 class SnakeGameAI:
     
@@ -55,6 +57,7 @@ class SnakeGameAI:
         self.food = None
         self._place_food()
         self.frame_iteration = 0
+        self.previous_distance = self.get_distance_to_food(self.head, self.food)
         
     def _place_food(self):
         x = random.randint(0, (self.w-BLOCK_SIZE )//BLOCK_SIZE )*BLOCK_SIZE 
@@ -62,48 +65,62 @@ class SnakeGameAI:
         self.food = Point(x, y)
         if self.food in self.snake:
             self._place_food()
+
+    def get_distance_to_food(self, snake_pos, food_pos):
+        x_snake, y_snake = snake_pos
+        x_food, y_food = food_pos
+        return math.sqrt((x_snake - x_food)**2 + (y_snake - y_food)**2)
         
     def play_step(self, action):
         self.frame_iteration += 1
-        # 1. collect user input
+        # user exit
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 quit()
         
-        # 2. move
-        self._move(action) # update the head
+        # move
+        self._move(action) # move/update head
         self.snake.insert(0, self.head)
         
-        # 3. check if game over
-        reward = 0
+        # check if game over
+        reward = -0.1
         game_over = False
         if self.is_collision() or self.frame_iteration > 100*len(self.snake):
             game_over = True
             reward = -10
             return reward, game_over, self.score
             
-        # 4. place new food or just move
+        # place new food or just move
         if self.head == self.food:
             self.score += 1
-            reward = 10
+            reward = 25
             self._place_food()
         else:
             self.snake.pop()
+
+        current_distance = self.get_distance_to_food(self.head, self.food)
+        if current_distance < self.previous_distance:
+            reward += 1 # Moving closer
+        elif current_distance > self.previous_distance:
+            reward -= 1  # Moving away
+
+        # set prev for next step
+        self.previous_distance = current_distance
         
-        # 5. update ui and clock
+        # ui and clock
         self._update_ui()
         self.clock.tick(SPEED)
-        # 6. return game over and score
+
         return reward, game_over, self.score
     
     def is_collision(self, pt=None):
         if pt is None:
             pt = self.head
-        # hits boundary
+        # hits walls
         if pt.x > self.w - BLOCK_SIZE or pt.x < 0 or pt.y > self.h - BLOCK_SIZE or pt.y < 0:
             return True
-        # hits itself
+        # hits body
         if pt in self.snake[1:]:
             return True
         
